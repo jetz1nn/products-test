@@ -1,0 +1,65 @@
+version: '3'
+services:
+    # We need to run the FPM container for our application
+    laravel.fpm:
+        container_name: 'php_fpm'
+        build:
+            context: .
+            target: fpm_server
+        image: laravel-in-kubernetes/fpm_server
+        # We can override any env values here.
+        # By default the .env in the project root will be loaded as the environment for all containers
+        environment:
+            APP_DEBUG: "true"
+        # Mount the codebase, so any code changes we make will be propagated to the running application
+        volumes:
+            # Here we mount in our codebase so any changes are immediately reflected into the container
+            - '.:/opt/apps/laravel-in-kubernetes'
+        networks:
+            - laravel-in-kubernetes
+
+    # Run the web server container for static content, and proxying to our FPM container
+    laravel.web:
+        build:
+            context: .
+            target: web_server
+        image: laravel-in-kubernetes/web_server
+        # Expose our application port (80) through a port on our local machine (8080)
+        ports:
+            - '8080:80'
+        environment:
+            # We need to pass in the new FPM hst as the name of the fpm container on port 9000
+            FPM_HOST: "laravel.fpm:9000"
+        # Mount the public directory into the container so we can serve any static files directly when they change
+        volumes:
+            # Here we mount in our codebase so any changes are immediately reflected into the container
+            - './public:/opt/apps/laravel-in-kubernetes/public'
+        networks:
+            - laravel-in-kubernetes
+    # Run the Laravel Scheduler
+    mysql:
+        container_name: 'mysql'
+        image: 'mysql:8.0'
+        ports:
+            - '3309:3306'
+        expose:
+            - '3309'
+        environment:
+            MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+            MYSQL_DATABASE: '${DB_DATABASE}'
+            MYSQL_USER: '${DB_USERNAME}'
+            MYSQL_PASSWORD: '${DB_PASSWORD}'
+            MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+        volumes:
+            - 'laravel-in-kubernetes-mysql:/var/lib/mysql'
+        networks:
+            - laravel-in-kubernetes
+        healthcheck:
+            test: [ "CMD", "mysqladmin", "ping", "-p${DB_PASSWORD}" ]
+            retries: 3
+            timeout: 5s
+networks:
+    laravel-in-kubernetes:
+        driver: bridge
+volumes:
+    laravel-in-kubernetes-mysql:
