@@ -3,43 +3,34 @@
 namespace App\Http\Controllers;
 
 use App\Domains\Products\Models\Product;
+use App\Http\Requests\CreateProductRequest;
+use App\Http\Requests\UpdateProductRequest;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller {
     //
-
-
-    public function __construct() {
-    }
-
-
     public function index() {
         return Product::all();
     }
 
-    public function store(Request $request) {
+    public function store(CreateProductRequest $request) {
 
-
-        $product = new Product($request->all());
+        $product = new Product($request->validated());
 
         $product->save();
-
 
         return $product;
     }
 
-    public function update($product, Request $request) {
+    public function update($product, UpdateProductRequest $request) {
 
         $product = Product::findOrFail($product);
-
 
         $product->fill($request->all());
 
         $product->save();
 
         return $product;
-
-
     }
 
     public function show($product) {
